@@ -1,6 +1,7 @@
 {
   "table_1": [
     {"name": "Study_ID", "label": "Primary Key Identifier", "type": "text"},
+	{"name": "Study_Title", "label": "Full Study Title", "type": "text"},
     {"name": "First_Author", "label": "Lead Author", "type": "text"},
     {"name": "Year_Published", "label": "Publication Year", "type": "number_int"},
     {"name": "Study_Design", "label": "Study Design", "type": "select", "options": ["Retrospective cohort", "Prospective cohort", "Cross-sectional"]},
