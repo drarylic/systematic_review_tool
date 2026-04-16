@@ -1,22 +1,29 @@
 import streamlit as st
 import json
 import pandas as pd
+from supabase import create_client, Client
 
-# Load configuration
+# Load configuration from your variables.json file
 with open('variables.json', 'r') as file:
     config = json.load(file)
 
-st.title("Systematic Review Data Extraction")
+# Initialize Supabase client securely
+@st.cache_resource
+def init_connection():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
 
-# Initialize session state for temporary data storage
-if 'temp_data' not in st.session_state:
-    st.session_state.temp_data = []
+supabase = init_connection()
+
+st.title("Systematic Review Data Extraction")
 
 with st.form("extraction_form"):
     st.subheader("Extraction Table 1: Study Metadata")
     
     form_data = {}
     
+    # Dynamically build inputs based on your JSON configuration
     for field in config['table_1']:
         if field['type'] == 'text':
             form_data[field['name']] = st.text_input(field['label'])
@@ -36,6 +43,7 @@ with st.form("extraction_form"):
         elif field['type'] == 'text_area':
             form_data[field['name']] = st.text_area(field['label'])
             
+        # Handle the dynamic tables for things like variable patient subgroups
         elif field['type'] == 'dynamic_table':
             st.write(f"**{field['label']}**")
             df_template = pd.DataFrame(columns=field['columns'])
@@ -46,15 +54,40 @@ with st.form("extraction_form"):
                 use_container_width=True,
                 key=field['name']
             )
-            
             form_data[field['name']] = edited_df.to_dict(orient='records')
             
-    submitted = st.form_submit_button("Save to Master Datasheet")
+    submitted = st.form_submit_button("Save to Supabase Database")
     
     if submitted:
-        st.session_state.temp_data.append(form_data)
-        st.success("Data saved successfully!")
+        # Prepare the payload for the database
+        db_payload = {
+            "study_id": form_data.get("Study_ID", "Unknown"),
+            "extracted_data": form_data
+        }
+        
+        try:
+            # Insert the data into your Supabase table
+            data, count = supabase.table("study_metadata").insert(db_payload).execute()
+            st.success(f"Data for {form_data.get('Study_ID')} successfully saved to Supabase!")
+        except Exception as e:
+            st.error(f"Error saving data: {str(e)}")
 
-if st.session_state.temp_data:
-    st.write("Current Extracted Cohort:")
-    st.dataframe(pd.DataFrame(st.session_state.temp_data))
+# Add a section at the bottom for the team to view the live database records
+st.divider()
+st.subheader("Current Database Records")
+
+if st.button("Refresh Database View"):
+    # Fetch all records from the database
+    response = supabase.table("study_metadata").select("*").execute()
+    
+    if response.data:
+        # Flatten the JSONB data to make it cleanly readable in a dataframe
+        records = []
+        for row in response.data:
+            flat_record = row['extracted_data']
+            flat_record['database_id'] = row['id']
+            records.append(flat_record)
+            
+        st.dataframe(pd.DataFrame(records))
+    else:
+        st.info("The database is currently empty.")
