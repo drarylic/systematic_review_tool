@@ -27,6 +27,16 @@ if 'active_study_title' not in st.session_state:
 if 'current_view' not in st.session_state:
     st.session_state.current_view = "Demographics"
 
+# Initialize Session States for Undo features
+if 'last_meta_id' not in st.session_state:
+    st.session_state.last_meta_id = None
+if 'last_meta_title' not in st.session_state:
+    st.session_state.last_meta_title = None
+if 'last_metric_id' not in st.session_state:
+    st.session_state.last_metric_id = None
+if 'last_metric_name' not in st.session_state:
+    st.session_state.last_metric_name = None
+
 # Helper to clean data
 def clean_data(data_dict):
     cleaned = {}
@@ -52,7 +62,7 @@ def format_subgroups(val):
         return ", ".join(items)
     return val
 
-# --- SIDEBAR TRACKER ---
+# --- SIDEBAR TRACKER & UNDO ACTIONS ---
 st.sidebar.header("Reviewer Status")
 try:
     count_response = supabase.table("study_metadata").select("id", count="exact").execute()
@@ -60,6 +70,27 @@ try:
     st.sidebar.metric("Total Studies Logged", total_studies)
 except:
     st.sidebar.metric("Total Studies Logged", "Error")
+
+st.sidebar.divider()
+st.sidebar.subheader("Undo Last Entry")
+
+# Undo Demographics Button
+if st.session_state.last_meta_id:
+    if st.sidebar.button(f"Delete Study: {st.session_state.last_meta_title}"):
+        supabase.table("study_metadata").delete().eq("id", st.session_state.last_meta_id).execute()
+        st.session_state.last_meta_id = None
+        st.session_state.active_study_id = "None Selected"
+        st.session_state.current_view = "Demographics"
+        st.sidebar.success("Study deleted successfully.")
+        st.rerun()
+
+# Undo Characteristics Button
+if st.session_state.last_metric_id:
+    if st.sidebar.button(f"Delete Metric: {st.session_state.last_metric_name}"):
+        supabase.table("diagnostic_metrics").delete().eq("id", st.session_state.last_metric_id).execute()
+        st.session_state.last_metric_id = None
+        st.sidebar.success("Metric deleted successfully.")
+        st.rerun()
 
 # --- NAVIGATION CONTROL ---
 view_col1, view_col2 = st.columns(2)
@@ -101,19 +132,22 @@ if st.session_state.current_view == "Demographics":
         if st.form_submit_button("Save Study Demographics"):
             clean_meta = clean_data(meta_data)
             
-            supabase.table("study_metadata").insert({
+            response = supabase.table("study_metadata").insert({
                 "study_id": clean_meta.get("Study_ID"), 
                 "extracted_data": clean_meta
             }).execute()
             
-            # Save context for next step
+            # Save IDs for the Undo function
+            if response.data:
+                st.session_state.last_meta_id = response.data[0]['id']
+                st.session_state.last_meta_title = clean_meta.get("Study_Title", "Unknown Title")
+            
             st.session_state.active_study_id = clean_meta.get("Study_ID")
             st.session_state.active_study_title = clean_meta.get("Study_Title", "Unknown Title")
             st.session_state.generated_study_id = str(random.randint(10000, 99999))
             
             st.success("Demographics saved successfully!")
             
-    # Show button outside form to trigger view change
     if st.session_state.active_study_id != "None Selected":
         if st.button("Proceed to Characteristics Form", type="primary"):
             st.session_state.current_view = "Characteristics"
@@ -127,7 +161,6 @@ elif st.session_state.current_view == "Characteristics":
     if st.session_state.active_study_id == "None Selected":
         st.warning("Please save Demographics first to lock in the Study ID.")
     else:
-        # clear_on_submit=True instantly resets the form for the next metric entry
         with st.form("metrics_form", clear_on_submit=True):
             metric_data = {}
             for field in config['table_2']:
@@ -151,12 +184,17 @@ elif st.session_state.current_view == "Characteristics":
                 clean_feature = "".join(char for char in feature if char.isalnum()).lower()
                 clean_metric["Metric_ID"] = f"{st.session_state.active_study_id}_{clean_feature}"
                 
-                supabase.table("diagnostic_metrics").insert({
+                response = supabase.table("diagnostic_metrics").insert({
                     "study_id": st.session_state.active_study_id, 
                     "metric_data": clean_metric
                 }).execute()
                 
-                st.success(f"Row saved! The form is now cleared and ready for the next metric.")
+                # Save IDs for the Undo function
+                if response.data:
+                    st.session_state.last_metric_id = response.data[0]['id']
+                    st.session_state.last_metric_name = clean_metric.get('MRI_Feature_Tested', 'Unknown Feature')
+                
+                st.success("Row saved! The form is now cleared and ready for the next metric.")
 
 # --- DATABASE VIEW ---
 st.divider()
@@ -172,7 +210,6 @@ if st.button("Refresh Database Tables"):
             meta_records = []
             for row in meta_resp.data:
                 flat_record = row['extracted_data']
-                # Fix the object display issue
                 if 'Subgroup_Sample_Sizes' in flat_record:
                     flat_record['Subgroup_Sample_Sizes'] = format_subgroups(flat_record['Subgroup_Sample_Sizes'])
                 meta_records.append(flat_record)
