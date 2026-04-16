@@ -62,35 +62,6 @@ def format_subgroups(val):
         return ", ".join(items)
     return val
 
-# --- SIDEBAR TRACKER & UNDO ACTIONS ---
-st.sidebar.header("Reviewer Status")
-try:
-    count_response = supabase.table("study_metadata").select("id", count="exact").execute()
-    total_studies = count_response.count if count_response.count else 0
-    st.sidebar.metric("Total Studies Logged", total_studies)
-except:
-    st.sidebar.metric("Total Studies Logged", "Error")
-
-st.sidebar.divider()
-st.sidebar.subheader("Undo Last Entry")
-
-# Undo Demographics Button
-if st.session_state.last_meta_id:
-    if st.sidebar.button(f"Delete Study: {st.session_state.last_meta_title}"):
-        supabase.table("study_metadata").delete().eq("id", st.session_state.last_meta_id).execute()
-        st.session_state.last_meta_id = None
-        st.session_state.active_study_id = "None Selected"
-        st.session_state.current_view = "Demographics"
-        st.sidebar.success("Study deleted successfully.")
-        st.rerun()
-
-# Undo Characteristics Button
-if st.session_state.last_metric_id:
-    if st.sidebar.button(f"Delete Metric: {st.session_state.last_metric_name}"):
-        supabase.table("diagnostic_metrics").delete().eq("id", st.session_state.last_metric_id).execute()
-        st.session_state.last_metric_id = None
-        st.sidebar.success("Metric deleted successfully.")
-        st.rerun()
 
 # --- NAVIGATION CONTROL ---
 view_col1, view_col2 = st.columns(2)
@@ -195,6 +166,37 @@ elif st.session_state.current_view == "Characteristics":
                     st.session_state.last_metric_name = clean_metric.get('MRI_Feature_Tested', 'Unknown Feature')
                 
                 st.success("Row saved! The form is now cleared and ready for the next metric.")
+
+# --- SIDEBAR TRACKER & UNDO ACTIONS (MOVED TO BOTTOM) ---
+# Because this is now below the form logic, it reads the updated state instantly.
+st.sidebar.header("Reviewer Status")
+try:
+    count_response = supabase.table("study_metadata").select("id", count="exact").execute()
+    total_studies = count_response.count if count_response.count else 0
+    st.sidebar.metric("Total Studies Logged", total_studies)
+except:
+    st.sidebar.metric("Total Studies Logged", "Error")
+
+st.sidebar.divider()
+st.sidebar.subheader("Undo Last Entry")
+
+# Undo Demographics Button
+if st.session_state.last_meta_id:
+    if st.sidebar.button(f"Delete Study: {st.session_state.last_meta_title}"):
+        supabase.table("study_metadata").delete().eq("id", st.session_state.last_meta_id).execute()
+        st.session_state.last_meta_id = None
+        st.session_state.active_study_id = "None Selected"
+        st.session_state.current_view = "Demographics"
+        st.sidebar.success("Study deleted successfully.")
+        st.rerun()
+
+# Undo Characteristics Button
+if st.session_state.last_metric_id:
+    if st.sidebar.button(f"Delete Metric: {st.session_state.last_metric_name}"):
+        supabase.table("diagnostic_metrics").delete().eq("id", st.session_state.last_metric_id).execute()
+        st.session_state.last_metric_id = None
+        st.sidebar.success("Metric deleted successfully.")
+        st.rerun()
 
 # --- DATABASE VIEW ---
 st.divider()
