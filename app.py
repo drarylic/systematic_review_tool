@@ -62,7 +62,6 @@ def format_subgroups(val):
         return ", ".join(items)
     return val
 
-
 # --- NAVIGATION CONTROL ---
 view_col1, view_col2 = st.columns(2)
 with view_col1:
@@ -167,8 +166,7 @@ elif st.session_state.current_view == "Characteristics":
                 
                 st.success("Row saved! The form is now cleared and ready for the next metric.")
 
-# --- SIDEBAR TRACKER & UNDO ACTIONS (MOVED TO BOTTOM) ---
-# Because this is now below the form logic, it reads the updated state instantly.
+# --- SIDEBAR TRACKER & UNDO ACTIONS ---
 st.sidebar.header("Reviewer Status")
 try:
     count_response = supabase.table("study_metadata").select("id", count="exact").execute()
@@ -198,35 +196,34 @@ if st.session_state.last_metric_id:
         st.sidebar.success("Metric deleted successfully.")
         st.rerun()
 
-# --- DATABASE VIEW ---
+# --- DATABASE VIEW (NOW AUTO-REFRESHES) ---
 st.divider()
 st.subheader("Current Database Records")
 
-if st.button("Refresh Database Tables"):
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.write("**Study Demographics**")
-        meta_resp = supabase.table("study_metadata").select("*").execute()
-        if meta_resp.data:
-            meta_records = []
-            for row in meta_resp.data:
-                flat_record = row['extracted_data']
-                if 'Subgroup_Sample_Sizes' in flat_record:
-                    flat_record['Subgroup_Sample_Sizes'] = format_subgroups(flat_record['Subgroup_Sample_Sizes'])
-                meta_records.append(flat_record)
-            st.dataframe(pd.DataFrame(meta_records))
-        else:
-            st.info("No demographics found.")
-            
-    with col2:
-        st.write("**Study Characteristics**")
-        metric_resp = supabase.table("diagnostic_metrics").select("*").execute()
-        if metric_resp.data:
-            metric_records = []
-            for row in metric_resp.data:
-                flat_record = row['metric_data']
-                metric_records.append(flat_record)
-            st.dataframe(pd.DataFrame(metric_records))
-        else:
-            st.info("No characteristics found.")
+col1, col2 = st.columns(2)
+
+with col1:
+    st.write("**Study Demographics**")
+    meta_resp = supabase.table("study_metadata").select("*").execute()
+    if meta_resp.data:
+        meta_records = []
+        for row in meta_resp.data:
+            flat_record = row['extracted_data']
+            if 'Subgroup_Sample_Sizes' in flat_record:
+                flat_record['Subgroup_Sample_Sizes'] = format_subgroups(flat_record['Subgroup_Sample_Sizes'])
+            meta_records.append(flat_record)
+        st.dataframe(pd.DataFrame(meta_records))
+    else:
+        st.info("No demographics found.")
+        
+with col2:
+    st.write("**Study Characteristics**")
+    metric_resp = supabase.table("diagnostic_metrics").select("*").execute()
+    if metric_resp.data:
+        metric_records = []
+        for row in metric_resp.data:
+            flat_record = row['metric_data']
+            metric_records.append(flat_record)
+        st.dataframe(pd.DataFrame(metric_records))
+    else:
+        st.info("No characteristics found.")
