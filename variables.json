@@ -1,0 +1,51 @@
+{
+  "table_1": [
+    {"name": "Study_ID", "label": "Primary Key Identifier", "type": "text"},
+    {"name": "First_Author", "label": "Lead Author", "type": "text"},
+    {"name": "Year_Published", "label": "Publication Year", "type": "number_int"},
+    {"name": "Study_Design", "label": "Study Design", "type": "select", "options": ["Retrospective cohort", "Prospective cohort", "Cross-sectional"]},
+    {"name": "Country", "label": "Country of Cohort", "type": "text"},
+    {"name": "Sample_Size_N", "label": "Total Patients", "type": "number_int"},
+	{
+      "name": "Subgroup_Sample_Sizes",
+      "label": "Subgroup Sample Sizes (e.g., DCM, Healthy Volunteers, Radiculopathy)",
+      "type": "dynamic_table",
+      "columns": ["Subgroup_Name", "N"]
+    },
+    {"name": "Major_Cohort_Flag", "label": "Major Cohort (N > 100)", "type": "checkbox"},
+    {"name": "Age_Mean", "label": "Mean Age", "type": "number_float"},
+    {"name": "Sex_Male_Pct", "label": "Male Percentage", "type": "number_float"},
+    {"name": "Sex_Female_Pct", "label": "Female Percentage", "type": "number_float"},
+    {"name": "Primary_Diagnostic_Paradigm", "label": "Primary Diagnostic Paradigm", "type": "select", "options": ["Qualitative-only", "Quantitative-only", "Mixed MRI", "Clinical-MRI combination"]},
+    {"name": "DCM_Diagnostic_Criteria", "label": "DCM Diagnostic Criteria", "type": "text_area"},
+    {"name": "Baseline_mJOA_Mean", "label": "Mean Baseline mJOA", "type": "number_float"},
+    {"name": "Symptom_Duration_Mos", "label": "Symptom Duration (Months)", "type": "number_float"},
+    {"name": "MRI_Magnet_Strength", "label": "MRI Magnet Strength", "type": "select", "options": ["1.5T", "3T", "Other"]},
+    {"name": "MRI_Sequences", "label": "MRI Sequences Used", "type": "text"},
+    {"name": "Reference_Standard", "label": "Clinical Reference Standard", "type": "text_area"},
+    {"name": "QUADAS_2_Risk", "label": "QUADAS 2 Risk Score", "type": "select", "options": ["Low", "High", "Unclear"]},
+    {"name": "Control_Cohort_Def", "label": "Control Cohort Definition", "type": "text"},
+    {"name": "Blinding_Status", "label": "Radiologist Blinding Status", "type": "select", "options": ["Yes", "No", "Unclear"]},
+    {"name": "Multicenter_Flag", "label": "Multicenter Study", "type": "checkbox"},
+    {"name": "Concomitant_Pathology", "label": "Concomitant Pathology (e.g., OPLL)", "type": "text"}
+  ],
+  "table_2": [
+    {"name": "Study_ID", "label": "Foreign Key (Study ID)", "type": "text"},
+    {"name": "Metric_ID", "label": "Metric ID", "type": "text"},
+    {"name": "MRI_Feature_Tested", "label": "MRI Feature Tested", "type": "text"},
+    {"name": "Feature_Type", "label": "Feature Type", "type": "select", "options": ["Qualitative", "Quantitative"]},
+    {"name": "Measurement_Cutoff", "label": "Measurement Cutoff", "type": "text"},
+    {"name": "True_Positives", "label": "True Positives", "type": "number_int"},
+    {"name": "False_Positives", "label": "False Positives", "type": "number_int"},
+    {"name": "True_Negatives", "label": "True Negatives", "type": "number_int"},
+    {"name": "False_Negatives", "label": "False Negatives", "type": "number_int"},
+    {"name": "Sensitivity_Pct", "label": "Sensitivity (%)", "type": "number_float"},
+    {"name": "Specificity_Pct", "label": "Specificity (%)", "type": "number_float"},
+    {"name": "PPV_Pct", "label": "PPV (%)", "type": "number_float"},
+    {"name": "NPV_Pct", "label": "NPV (%)", "type": "number_float"},
+    {"name": "AUC", "label": "AUC", "type": "number_float"},
+    {"name": "mJOA_Subgroup", "label": "mJOA Subgroup", "type": "select", "options": ["All", "Mild DCM only", "Moderate DCM only", "Severe DCM only"]},
+    {"name": "Spinal_Level", "label": "Spinal Level", "type": "text"},
+    {"name": "Inter_Rater_Kappa", "label": "Inter Rater Kappa or ICC", "type": "number_float"}
+  ]
+}
