@@ -3,91 +3,64 @@ import json
 import pandas as pd
 from supabase import create_client, Client
 
-# Load configuration from your variables.json file
+# Load configuration
 with open('variables.json', 'r') as file:
     config = json.load(file)
 
-# Initialize Supabase client securely
 @st.cache_resource
 def init_connection():
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
-    return create_client(url, key)
+    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 supabase = init_connection()
 
-st.title("Systematic Review Data Extraction")
+st.title("DCM Systematic Review Extraction")
 
-with st.form("extraction_form"):
-    st.subheader("Extraction Table 1: Study Metadata")
-    
-    form_data = {}
-    
-    # Dynamically build inputs based on your JSON configuration
-    for field in config['table_1']:
-        if field['type'] == 'text':
-            form_data[field['name']] = st.text_input(field['label'])
-            
-        elif field['type'] == 'number_int':
-            form_data[field['name']] = st.number_input(field['label'], step=1, value=0)
-            
-        elif field['type'] == 'number_float':
-            form_data[field['name']] = st.number_input(field['label'], step=0.1, value=0.0)
-            
-        elif field['type'] == 'select':
-            form_data[field['name']] = st.selectbox(field['label'], field['options'])
-            
-        elif field['type'] == 'checkbox':
-            form_data[field['name']] = st.checkbox(field['label'])
-            
-        elif field['type'] == 'text_area':
-            form_data[field['name']] = st.text_area(field['label'])
-            
-        # Handle the dynamic tables for things like variable patient subgroups
-        elif field['type'] == 'dynamic_table':
-            st.write(f"**{field['label']}**")
-            df_template = pd.DataFrame(columns=field['columns'])
-            
-            edited_df = st.data_editor(
-                df_template, 
-                num_rows="dynamic", 
-                use_container_width=True,
-                key=field['name']
-            )
-            form_data[field['name']] = edited_df.to_dict(orient='records')
-            
-    submitted = st.form_submit_button("Save to Supabase Database")
-    
-    if submitted:
-        # Prepare the payload for the database
-        db_payload = {
-            "study_id": form_data.get("Study_ID", "Unknown"),
-            "extracted_data": form_data
-        }
+# Use tabs to separate Metadata and Metrics
+tab1, tab2 = st.tabs(["1. Study Metadata", "2. Diagnostic Metrics"])
+
+# --- TAB 1: METADATA ---
+with tab1:
+    with st.form("metadata_form"):
+        st.subheader("Extraction Table 1: Study Metadata")
+        meta_data = {}
+        for field in config['table_1']:
+            if field['type'] == 'text': meta_data[field['name']] = st.text_input(field['label'])
+            elif field['type'] == 'number_int': meta_data[field['name']] = st.number_input(field['label'], step=1)
+            elif field['type'] == 'number_float': meta_data[field['name']] = st.number_input(field['label'], step=0.1)
+            elif field['type'] == 'select': meta_data[field['name']] = st.selectbox(field['label'], field['options'])
+            elif field['type'] == 'checkbox': meta_data[field['name']] = st.checkbox(field['label'])
+            elif field['type'] == 'text_area': meta_data[field['name']] = st.text_area(field['label'])
+            elif field['type'] == 'dynamic_table':
+                st.write(f"**{field['label']}**")
+                edited_df = st.data_editor(pd.DataFrame(columns=field['columns']), num_rows="dynamic", key=f"meta_{field['name']}")
+                meta_data[field['name']] = edited_df.to_dict(orient='records')
         
-        try:
-            # Insert the data into your Supabase table
-            data, count = supabase.table("study_metadata").insert(db_payload).execute()
-            st.success(f"Data for {form_data.get('Study_ID')} successfully saved to Supabase!")
-        except Exception as e:
-            st.error(f"Error saving data: {str(e)}")
+        if st.form_submit_button("Save Study Metadata"):
+            supabase.table("study_metadata").insert({"study_id": meta_data.get("Study_ID"), "extracted_data": meta_data}).execute()
+            st.session_state['active_study'] = meta_data.get("Study_ID") # Keep track of ID for Table 2
+            st.success(f"Metadata for {meta_data.get('Study_ID')} saved! Now go to Tab 2.")
 
-# Add a section at the bottom for the team to view the live database records
-st.divider()
-st.subheader("Current Database Records")
-
-if st.button("Refresh Database View"):
-    # Fetch all records from the database
-    response = supabase.table("study_metadata").select("*").execute()
+# --- TAB 2: METRICS ---
+with tab2:
+    current_study = st.session_state.get('active_study', "None Selected")
+    st.subheader(f"Adding Metrics for: {current_study}")
     
-    if response.data:
-        # Flatten the JSONB data to make it cleanly readable in a dataframe
-        records = []
-        for row in response.data:
-            flat_record = row['extracted_data']
-            flat_record['database_id'] = row['id']
-            records.append(flat_record)
-            
-        st.dataframe(pd.DataFrame(records))
+    if current_study == "None Selected":
+        st.warning("Please save Metadata in Tab 1 first to lock in the Study ID.")
     else:
-        st.info("The database is currently empty.")
+        with st.form("metrics_form"):
+            metric_data = {"Study_ID": current_study} # Auto-fill Foreign Key
+            for field in config['table_2']:
+                if field['name'] == "Study_ID": continue # Skip as we auto-fill it
+                if field['type'] == 'text': metric_data[field['name']] = st.text_input(field['label'])
+                elif field['type'] == 'number_int': metric_data[field['name']] = st.number_input(field['label'], step=1)
+                elif field['type'] == 'number_float': metric_data[field['name']] = st.number_input(field['label'], step=0.1)
+                elif field['type'] == 'select': metric_data[field['name']] = st.selectbox(field['label'], field['options'])
+            
+            if st.form_submit_button("Save Metric Row"):
+                # We save this to a separate table called 'diagnostic_metrics'
+                supabase.table("diagnostic_metrics").insert({
+                    "study_id": current_study, 
+                    "metric_data": metric_data
+                }).execute()
+                st.success(f"Metric '{metric_data.get('MRI_Feature_Tested')}' added to {current_study}!")
